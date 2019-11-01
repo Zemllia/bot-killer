@@ -33,8 +33,24 @@ def register_new_user(user_id):
     cmd = "INSERT INTO users(user_id, state) VALUES (%d, '')" % user_id
     c.execute(cmd)
     conn.commit()
-    cmd = "INSERT INTO user_info(user_id, user_password, is_dead, is_registered)" \
-          " VALUES (%d, '%s', 0, 0)" % (user_id, generate_user_password())
+    cmd = "INSERT INTO user_info(user_id, user_password, is_dead, is_registered, is_aproved)" \
+          " VALUES (%d, '%s', 0, 0, -1)" % (user_id, generate_user_password())
+    c.execute(cmd)
+    conn.commit()
+
+
+def get_unaproved_user():
+    cmd = "SELECT user_id FROM user_info WHERE is_aproved=0"
+    c.execute(cmd)
+    result = c.fetchone()[0]
+    if result is not None:
+        return result[0]
+    else:
+        return None
+
+
+def set_aprove_state(user_id, state):
+    cmd = "UPDATE user_info SET is_aproved=%d WHERE user_id=%d" % (state, user_id)
     c.execute(cmd)
     conn.commit()
 
@@ -129,7 +145,7 @@ def send_messages_about_victim_to_all_users():
     result = c.fetchall()
     for item in result:
         image, group = generate_message_about_victim(item[1])
-        message = "Ваша цель:\n Группа:" + group + "\n Фотография: "
+        message = "Ваша цель:\nСсылка на страничку: https://vk.com/id" + item[0] + " \nГруппа:" + group + "\n Фотография: "
         vk.messages.send(
             user_id=item[0],
             message=message,
@@ -138,22 +154,25 @@ def send_messages_about_victim_to_all_users():
         )
 
 
+def generate_list_of_random_players(players):
+    l = []
+    for i in range(len(players)):
+        object_to_interact = players[random.randint(0, len(players) - 1)]
+        print(object_to_interact)
+        l.append(object_to_interact)
+        players.remove(object_to_interact)
+
+    return l
+
+
 def generate_victims():
     cmd = "SELECT user_id FROM user_info WHERE is_registered = 1"
     c.execute(cmd)
     result = c.fetchall()
-    for item in result:
-        target = item[0]
-        target_of_target = item[0]
-        while target == item[0] or target_of_target == item[0]:
-            new_target = result[random.randint(0, len(result)-1)][0]
-            target = new_target
-            cmd = "SELECT target_id FROM user_info WHERE user_id=%d" % target
-            c.execute(cmd)
-            target_of_target = c.fetchone()[0]
-            print(target_of_target)
-
-        cmd = "UPDATE user_info SET target_id = %d WHERE user_id = %d" % (target, item[0])
+    list_of_players = generate_list_of_random_players(result)
+    for item in list_of_players:
+        cmd = "UPDATE user_info SET target_id = %d WHERE user_id = %d" %\
+              (list_of_players[(list_of_players.index(item) + 1) % len(list_of_players)][0], item[0])
         c.execute(cmd)
         conn.commit()
 
@@ -206,6 +225,23 @@ def check_alive():
     return len(result)
 
 
+def delete_all_unaproved_users():
+    cmd = "SELECT user_id FROM user_info WHERE is_aproved = 0"
+    c.execute(cmd)
+    result = c.fetchall()
+    for item in result:
+        delete_user(item[0])
+
+
+def delete_user(user_id):
+    cmd = "DELETE FROM user_info WHERE user_id = %d" %user_id
+    c.execute(cmd)
+    conn.commit()
+    cmd = "DELETE FROM users WHERE user_id = %d" % user_id
+    c.execute(cmd)
+    conn.commit()
+
+
 def get_user_password(user_id):
     cmd = "SELECT user_password FROM user_info WHERE user_id=%d" % user_id
     c.execute(cmd)
@@ -239,6 +275,26 @@ def check_message_on_stage_zero(cur_event):
                         "\n(https://vk.com/id_000010010010000000000001)",
                 random_id=random.randint(-1000000000, 1000000000)
             )
+    elif message == "проверка":
+        if user_id in config.admin_list:
+            user = get_unaproved_user()
+            if user is not None:
+                image, group = generate_message_about_victim(user)
+                vk.messages.send(
+                    user_id=user_id,
+                    message="Вот пользователь на проверку:\n Ссылка на страничку: https://vk.com/id"
+                                    + str(user) + " \nГруппа:  " + group + "\n Фотография: ",
+                    attachment=image,
+                    random_id=random.randint(-1000000000, 1000000000)
+                )
+                set_aprove_state(user, -2)
+                set_user_state(user_id, "aproving " + str(user))
+            else:
+                vk.messages.send(
+                    user_id=user_id,
+                    message="Не осталось не подтвержденных пользователей",
+                    random_id=random.randint(-1000000000, 1000000000)
+                )
 
     # Администратор пишет определенные буквы в определнном регистре
     elif cur_event.text == "СмеНА сТадИи " + config.passwd:
@@ -246,9 +302,10 @@ def check_message_on_stage_zero(cur_event):
         send_messages_to_all_users("Внимание, игра началась!")
         generate_victims()
         send_messages_about_victim_to_all_users()
-
+        delete_all_unaproved_users()
     else:
-        if get_user_state(user_id) == "registration_image":
+        user_state = get_user_state(user_id)
+        if user_state == "registration_image":
             dialogue_image = get_image_from_dialogue(cur_event)
             if dialogue_image is None:
                 vk.messages.send(
@@ -265,16 +322,54 @@ def check_message_on_stage_zero(cur_event):
                             " укажите, что вы преподаете",
                     random_id=random.randint(-1000000000, 1000000000)
                 )
-        elif get_user_state(user_id) == "registration_group":
+        elif user_state == "registration_group":
             set_user_group(user_id, event.text)
             set_user_state(user_id, "")
             set_user_registration_status(user_id)
+            set_aprove_state(user_id, 0)
             vk.messages.send(
                 user_id=user_id,
                 message="Все, ты в игре, жди начала... Ах да, твой пароль: " + get_user_password(user_id) + ","
                                                                                                             " не теряй",
                 random_id=random.randint(-1000000000, 1000000000)
             )
+        elif "aproving " in user_state:
+            messages = message.split()
+            modering_user_id = user_state.split()[1]
+            if messages[0] == "удалить":
+                vk.messages.send(
+                    user_id=int(modering_user_id),
+                    message="Внимание! Ваш аккаунт был не подтвержден администратором https://vk.com/id" + str(user_id)
+                            + " по причине: " + message.replace("удалить ", "") + ". Зарегистрируйтесь заново, учтя все ошибки!",
+                    random_id=random.randint(-1000000000, 1000000000)
+                )
+                delete_user(int(modering_user_id))
+                vk.messages.send(
+                    user_id=user_id,
+                    message="Аккаунт пользователя https://vk.com/id"
+                            + modering_user_id + " успешно удален по причине: " + message.replace("удалить ", ""),
+                    random_id=random.randint(-1000000000, 1000000000)
+                )
+            elif messages[0] == "подтвердить":
+                vk.messages.send(
+                    user_id=int(modering_user_id),
+                    message="Внимание! Ваш аккаунт был подтвержден администратором https://vk.com/id" + str(user_id)
+                            + " ! Удачной игры!",
+                    random_id=random.randint(-1000000000, 1000000000)
+                )
+                set_aprove_state(int(modering_user_id), 1)
+                vk.messages.send(
+                    user_id=user_id,
+                    message="Аккаунт пользователя https://vk.com/id"
+                            + modering_user_id + " успешно подтвержден",
+                    random_id=random.randint(-1000000000, 1000000000)
+                )
+            else:
+                vk.messages.send(
+                    user_id=user_id,
+                    message="Пожалуйста, укажите команду правильно: либо 'подтвердить', либо 'удалить причина'",
+                    random_id=random.randint(-1000000000, 1000000000)
+                )
         else:
             vk.messages.send(
                 user_id=user_id,
@@ -331,7 +426,8 @@ def check_message_on_stage_one(cur_event):
                     image, group = generate_message_about_victim(new_target)
                     vk.messages.send(
                         user_id=user_id,
-                        message="Отлично, вот твоя следующая цель:\n Группа:  " + group + "\n Фотография: ",
+                        message="Отлично, вот твоя следующая цель:\n Ссылка на страничку: https://vk.com/id"
+                                + new_target + " \nГруппа:  " + group + "\n Фотография: ",
                         attachment=image,
                         random_id=random.randint(-1000000000, 1000000000)
                     )
