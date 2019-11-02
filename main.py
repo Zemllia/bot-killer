@@ -260,6 +260,7 @@ def check_message_on_stage_zero(cur_event):
             user_id=user_id,
             message="Привет! Я твой куратор в этом состязании. Пиши сюда, все, что с ним связано. Так же напиши"
                     " 'помощь', если захочешь узнать, что мне можно сказать",
+            keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
             random_id=random.randint(-1000000000, 1000000000)
         )
     elif message == "регистрация":
@@ -267,6 +268,7 @@ def check_message_on_stage_zero(cur_event):
             vk.messages.send(
                 user_id=user_id,
                 message="Отлично! Теперь отправьте мне фотографию себя, чтобы другие охотники смогли вас найти",
+                keyboard=open("cancel.json", "r", encoding="UTF-8").read(),
                 random_id=random.randint(-1000000000, 1000000000)
             )
             set_user_state(user_id, "registration_image")
@@ -275,6 +277,7 @@ def check_message_on_stage_zero(cur_event):
                 user_id=user_id,
                 message="Ты уже участвешь, жди начала..."
                         "\n(https://vk.com/id_000010010010000000000001)",
+                keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
                 random_id=random.randint(-1000000000, 1000000000)
             )
     elif message == "проверка":
@@ -295,9 +298,9 @@ def check_message_on_stage_zero(cur_event):
                 vk.messages.send(
                     user_id=user_id,
                     message="Не осталось не подтвержденных пользователей",
+                    keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
                     random_id=random.randint(-1000000000, 1000000000)
                 )
-
     # Администратор пишет определенные буквы в определнном регистре
     elif cur_event.text == "СмеНА сТадИи " + config.passwd:
         set_game_stage(1)
@@ -305,6 +308,24 @@ def check_message_on_stage_zero(cur_event):
         generate_victims()
         send_messages_about_victim_to_all_users()
         delete_all_unaproved_users()
+
+    elif message == "отмена":
+        state = get_user_state(user_id)
+        if state == "registration_image" or state == "registration_group":
+            delete_user(user_id)
+            vk.messages.send(
+                user_id=user_id,
+                message="Ну... не хочешь, как хочешь...",
+                keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
+                random_id=random.randint(-1000000000, 1000000000)
+            )
+        else:
+            vk.messages.send(
+                user_id=user_id,
+                message="Тебе нечего отменять",
+                keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
+                random_id=random.randint(-1000000000, 1000000000)
+            )
     else:
         user_state = get_user_state(user_id)
         if user_state == "registration_image":
@@ -315,6 +336,7 @@ def check_message_on_stage_zero(cur_event):
                 vk.messages.send(
                     user_id=user_id,
                     message="Слушай, тут нет фотографии, давай не пытаться обмануть друг-друга",
+                    keyboard=open("cancel.json", "r", encoding="UTF-8").read(),
                     random_id=random.randint(-1000000000, 1000000000)
                 )
             else:
@@ -326,6 +348,7 @@ def check_message_on_stage_zero(cur_event):
                         user_id=user_id,
                         message="Укажите группу в которой вы учитесь (Например: 3ПКС-17-1к) или, если вы преподаватель,"
                                 " укажите, что вы преподаете",
+                        keyboard=open("cancel.json", "r", encoding="UTF-8").read(),
                         random_id=random.randint(-1000000000, 1000000000)
                     )
                 elif faces == 0:
@@ -333,12 +356,14 @@ def check_message_on_stage_zero(cur_event):
                         user_id=user_id,
                         message="На этой фотографии не видно или нет лица, отправь нормальную фотографию, я не могу"
                                 "вклеивать в твое дело все что попало",
+                        keyboard=open("cancel.json", "r", encoding="UTF-8").read(),
                         random_id=random.randint(-1000000000, 1000000000)
                     )
                 elif faces > 1:
                     vk.messages.send(
                         user_id=user_id,
                         message="Ты не один на фотографии, ножно чтобы ты был один",
+                        keyboard=open("cancel.json", "r", encoding="UTF-8").read(),
                         random_id=random.randint(-1000000000, 1000000000)
                     )
         elif user_state == "registration_group":
@@ -350,6 +375,7 @@ def check_message_on_stage_zero(cur_event):
                 user_id=user_id,
                 message="Все, ты в игре, жди начала... Ах да, твой пароль: " + get_user_password(user_id) + ","
                                                                                                             " не теряй",
+                keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
                 random_id=random.randint(-1000000000, 1000000000)
             )
         elif "aproving " in user_state:
@@ -360,6 +386,7 @@ def check_message_on_stage_zero(cur_event):
                     user_id=int(modering_user_id),
                     message="Внимание! Ваш аккаунт был не подтвержден администратором https://vk.com/id" + str(user_id)
                             + " по причине: " + message.replace("удалить ", "") + ". Зарегистрируйтесь заново, учтя все ошибки!",
+                    keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
                     random_id=random.randint(-1000000000, 1000000000)
                 )
                 delete_user(int(modering_user_id))
@@ -367,6 +394,7 @@ def check_message_on_stage_zero(cur_event):
                     user_id=user_id,
                     message="Аккаунт пользователя https://vk.com/id"
                             + modering_user_id + " успешно удален по причине: " + message.replace("удалить ", ""),
+                    keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
                     random_id=random.randint(-1000000000, 1000000000)
                 )
             elif messages[0] == "подтвердить":
@@ -374,6 +402,7 @@ def check_message_on_stage_zero(cur_event):
                     user_id=int(modering_user_id),
                     message="Внимание! Ваш аккаунт был подтвержден администратором https://vk.com/id" + str(user_id)
                             + " ! Удачной игры!",
+                    keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
                     random_id=random.randint(-1000000000, 1000000000)
                 )
                 set_aprove_state(int(modering_user_id), 1)
@@ -381,6 +410,7 @@ def check_message_on_stage_zero(cur_event):
                     user_id=user_id,
                     message="Аккаунт пользователя https://vk.com/id"
                             + modering_user_id + " успешно подтвержден",
+                    keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
                     random_id=random.randint(-1000000000, 1000000000)
                 )
             else:
@@ -392,8 +422,9 @@ def check_message_on_stage_zero(cur_event):
         else:
             vk.messages.send(
                 user_id=user_id,
-                message="Так, агент, давайте соблюдать субординацию, я не буду отвечать на это... если хочешь что-то "
-                        "мне сказать, напиши 'помощь'",
+                message="Так, агент, давайте соблюдать субординацию, я вас не понял, если ты хочешь попасть на "
+                        "состязание, напиши команду 'Регистрация'",
+                keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
                 random_id=random.randint(-1000000000, 1000000000)
             )
 
@@ -408,6 +439,7 @@ def check_message_on_stage_one(cur_event):
             user_id=user_id,
             message="Привет! Я твой куратор в этом состязании. Пиши сюда, все, что с ним связано. Так же напиши"
                     " 'помощь', если захочешь узнать, что мне можно сказать",
+            keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
             random_id=random.randint(-1000000000, 1000000000)
         )
     elif message == "регистрация":
@@ -421,6 +453,7 @@ def check_message_on_stage_one(cur_event):
         vk.messages.send(
             user_id=user_id,
             message="убийство - если вы совершили убийство, пишите эту команду, а затем отправляете пароль",
+            keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
             random_id=random.randint(-1000000000, 1000000000)
         )
 
@@ -428,10 +461,27 @@ def check_message_on_stage_one(cur_event):
         vk.messages.send(
             user_id=user_id,
             message="Оу, отлично, давайте мне пароль, посмотрим...",
+            keyboard=open("cancel.json", "r", encoding="UTF-8").read(),
             random_id=random.randint(-1000000000, 1000000000)
         )
         set_user_state(user_id, "waiting_password")
 
+    elif message == "отмена":
+        set_user_state(user_id, "")
+        vk.messages.send(
+            user_id=user_id,
+            message="Ну зачем тогда меня от дел?",
+            keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
+            random_id=random.randint(-1000000000, 1000000000)
+        )
+
+    elif message == "мой пароль":
+        vk.messages.send(
+            user_id=user_id,
+            message="Ну я же говорил, не теряй... ладно вот твой пароль " + get_user_password(user_id),
+            keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
+            random_id=random.randint(-1000000000, 1000000000)
+        )
     # Администратор пишет определенные буквы в определнном регистре
     elif cur_event.text == "СмеНА сТадИи " + config.passwd:
         set_game_stage(2)
@@ -448,6 +498,7 @@ def check_message_on_stage_one(cur_event):
                         message="Отлично, вот твоя следующая цель:\n Ссылка на страничку: https://vk.com/id"
                                 + new_target + " \nГруппа:  " + group + "\n Фотография: ",
                         attachment=image,
+                        keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
                         random_id=random.randint(-1000000000, 1000000000)
                     )
                 else:
@@ -457,6 +508,7 @@ def check_message_on_stage_one(cur_event):
                 vk.messages.send(
                     user_id=user_id,
                     message="Слушай, не пвтайся меня обмануть, это либо не тот пароль, либо не твоя жертва...",
+                    keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
                     random_id=random.randint(-1000000000, 1000000000)
                 )
             set_user_state(user_id, "")
@@ -465,6 +517,7 @@ def check_message_on_stage_one(cur_event):
                 user_id=user_id,
                 message="Так, агент, давайте соблюдать субординацию, я не буду отвечать на это... если хочешь что-то "
                         "мне сказать, напиши 'помощь'",
+                keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
                 random_id=random.randint(-1000000000, 1000000000)
             )
 
