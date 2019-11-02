@@ -3,6 +3,7 @@ import random
 import config
 import sqlite3
 import string
+import face_detect
 
 from vk_api.longpoll import VkLongPoll, VkEventType
 
@@ -42,7 +43,7 @@ def register_new_user(user_id):
 def get_unaproved_user():
     cmd = "SELECT user_id FROM user_info WHERE is_aproved=0"
     c.execute(cmd)
-    result = c.fetchone()[0]
+    result = c.fetchone()
     if result is not None:
         return result[0]
     else:
@@ -115,14 +116,18 @@ def get_user_registration_status(user_id):
     return c.fetchone()[0]
 
 
-def get_image_from_dialogue(cur_event):
+def get_image_from_dialogue(cur_event, what_to_get = 0):
     result = vk_session.method("messages.getById", {
         "message_ids": [cur_event.message_id],
         "group_id": config.group_id
     })
+    print(result)
     try:
         photo = result['items'][0]['attachments'][0]['photo']
-        return "photo{}_{}_{}".format(photo['owner_id'], photo['id'], photo['access_key'])
+        if what_to_get == 0:
+            return "photo{}_{}_{}".format(photo['owner_id'], photo['id'], photo['access_key'])
+        elif what_to_get == 1:
+            return result['items'][0]['attachments'][0]['photo']['sizes'][-1]['url']
     except:
         return None
 
@@ -158,7 +163,6 @@ def generate_list_of_random_players(players):
     l = []
     for i in range(len(players)):
         object_to_interact = players[random.randint(0, len(players) - 1)]
-        print(object_to_interact)
         l.append(object_to_interact)
         players.remove(object_to_interact)
 
@@ -183,8 +187,6 @@ def check_kill(user_id, message):
     cmd = "SELECT user_password FROM user_info WHERE user_id = %d" % c.fetchone()[0]
     c.execute(cmd)
     result = c.fetchone()[0]
-    print(result)
-    print(message)
     if str(result) == message:
         return True
     return False
@@ -307,6 +309,8 @@ def check_message_on_stage_zero(cur_event):
         user_state = get_user_state(user_id)
         if user_state == "registration_image":
             dialogue_image = get_image_from_dialogue(cur_event)
+            dialogue_image_path = get_image_from_dialogue(cur_event, 1)
+            print(dialogue_image_path)
             if dialogue_image is None:
                 vk.messages.send(
                     user_id=user_id,
@@ -314,14 +318,29 @@ def check_message_on_stage_zero(cur_event):
                     random_id=random.randint(-1000000000, 1000000000)
                 )
             else:
-                set_user_image(user_id, dialogue_image)
-                set_user_state(user_id, "registration_group")
-                vk.messages.send(
-                    user_id=user_id,
-                    message="Укажите группу в которой вы учитесь (Например: 3ПКС-17-1к) или, если вы преподаватель,"
-                            " укажите, что вы преподаете",
-                    random_id=random.randint(-1000000000, 1000000000)
-                )
+                faces = face_detect.check_img(dialogue_image_path)
+                if faces == 1:
+                    set_user_image(user_id, dialogue_image)
+                    set_user_state(user_id, "registration_group")
+                    vk.messages.send(
+                        user_id=user_id,
+                        message="Укажите группу в которой вы учитесь (Например: 3ПКС-17-1к) или, если вы преподаватель,"
+                                " укажите, что вы преподаете",
+                        random_id=random.randint(-1000000000, 1000000000)
+                    )
+                elif faces == 0:
+                    vk.messages.send(
+                        user_id=user_id,
+                        message="На этой фотографии не видно или нет лица, отправь нормальную фотографию, я не могу"
+                                "вклеивать в твое дело все что попало",
+                        random_id=random.randint(-1000000000, 1000000000)
+                    )
+                elif faces > 1:
+                    vk.messages.send(
+                        user_id=user_id,
+                        message="Ты не один на фотографии, ножно чтобы ты был один",
+                        random_id=random.randint(-1000000000, 1000000000)
+                    )
         elif user_state == "registration_group":
             set_user_group(user_id, event.text)
             set_user_state(user_id, "")
