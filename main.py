@@ -1,3 +1,5 @@
+import time
+
 import vk_api
 import random
 import config
@@ -7,11 +9,19 @@ import face_detect
 
 from vk_api.longpoll import VkLongPoll, VkEventType
 
-vk_session = vk_api.VkApi(token=config.token)
+def connect_to_vk():
+    global vk_session
+    global longpoll
+    global vk
 
-longpoll = VkLongPoll(vk_session)
+    vk_session = vk_api.VkApi(token=config.token)
 
-vk = vk_session.get_api()
+    longpoll = VkLongPoll(vk_session)
+
+    vk = vk_session.get_api()
+
+
+connect_to_vk()
 
 conn = sqlite3.connect(config.sqlite_path)
 c = conn.cursor()
@@ -433,6 +443,13 @@ def check_message_on_stage_one(cur_event):
     message = cur_event.text.lower()
     user_id = cur_event.user_id
     print(str(cur_event.user_id) + ": " + message)
+    if get_user_registration_status(user_id) != 1:
+        vk.messages.send(
+            user_id=user_id,
+            message="Ты опоздал, состязание уже началось, регистрация закончена, в следующий раз не опаздывай",
+            random_id=random.randint(-1000000000, 1000000000)
+        )
+        return
 
     if message == "привет":
         vk.messages.send(
@@ -440,12 +457,6 @@ def check_message_on_stage_one(cur_event):
             message="Привет! Я твой куратор в этом состязании. Пиши сюда, все, что с ним связано. Так же напиши"
                     " 'помощь', если захочешь узнать, что мне можно сказать",
             keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
-            random_id=random.randint(-1000000000, 1000000000)
-        )
-    elif message == "регистрация":
-        vk.messages.send(
-            user_id=user_id,
-            message="Ты опоздал, состязание уже началось, в следующий раз не опаздывай",
             random_id=random.randint(-1000000000, 1000000000)
         )
 
@@ -531,16 +542,23 @@ def check_message_on_stage_two(cur_event):
 
 
 while True:
-    for event in longpoll.listen():
-        if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-            print("Check user")
-            if get_user(event.user_id) is None:
-                print("Add new user")
-                register_new_user(event.user_id)
-            game_stage = get_game_stage()
-            if game_stage == 0:
-                check_message_on_stage_zero(event)
-            elif game_stage == 1:
-                check_message_on_stage_one(event)
-            elif game_stage == 2:
-                check_message_on_stage_two(event)
+    try:
+        for event in longpoll.listen():
+            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                print("Check user")
+                if get_user(event.user_id) is None:
+                    print("Add new user")
+                    register_new_user(event.user_id)
+                game_stage = get_game_stage()
+                if game_stage == 0:
+                    check_message_on_stage_zero(event)
+                elif game_stage == 1:
+                    check_message_on_stage_one(event)
+                elif game_stage == 2:
+                    check_message_on_stage_two(event)
+    except:
+        print("Я попытался упасть, но трай меня спас")
+        time.sleep(5)
+        print("Спас же?")
+        connect_to_vk()
+        print("Спааааас")
