@@ -147,11 +147,14 @@ def send_messages_to_all_users(message):
     c.execute(cmd)
     result = c.fetchall()
     for item in result:
-        vk.messages.send(
-            user_id=item[0],
-            message=message,
-            random_id=random.randint(-1000000000, 1000000000)
-        )
+        try:
+            vk.messages.send(
+                user_id=item[0],
+                message=message,
+                random_id=random.randint(-1000000000, 1000000000)
+            )
+        except:
+            print("User is banned")
 
 
 def send_messages_about_victim_to_all_users():
@@ -160,13 +163,16 @@ def send_messages_about_victim_to_all_users():
     result = c.fetchall()
     for item in result:
         image, group = generate_message_about_victim(item[1])
-        message = "Ваша цель:\nСсылка на страничку: https://vk.com/id" + item[0] + " \nГруппа:" + group + "\n Фотография: "
-        vk.messages.send(
-            user_id=item[0],
-            message=message,
-            attachment=image,
-            random_id=random.randint(-1000000000, 1000000000)
-        )
+        message = "Ваша цель:\nСсылка на страничку: https://vk.com/id" + str(item[0]) + " \nГруппа:" + group + "\n Фотография: "
+        try:
+            vk.messages.send(
+                user_id=item[0],
+                message=message,
+                attachment=image,
+                random_id=random.randint(-1000000000, 1000000000)
+            )
+        except:
+            print("User is banned")
 
 
 def generate_list_of_random_players(players):
