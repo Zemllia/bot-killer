@@ -1,4 +1,5 @@
 import time
+import traceback
 
 import vk_api
 import random
@@ -513,7 +514,7 @@ def check_message_on_stage_one(cur_event):
                     vk.messages.send(
                         user_id=user_id,
                         message="Отлично, вот твоя следующая цель:\n Ссылка на страничку: https://vk.com/id"
-                                + new_target + " \nГруппа:  " + group + "\n Фотография: ",
+                                + str(new_target) + " \nГруппа:  " + group + "\n Фотография: ",
                         attachment=image,
                         keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
                         random_id=random.randint(-1000000000, 1000000000)
@@ -562,7 +563,8 @@ while True:
                     check_message_on_stage_one(event)
                 elif game_stage == 2:
                     check_message_on_stage_two(event)
-    except:
+    except Exception as e:
+        print('Ошибка:\n', traceback.format_exc())
         print("Я попытался упасть, но трай меня спас")
         time.sleep(5)
         print("Спас же?")
