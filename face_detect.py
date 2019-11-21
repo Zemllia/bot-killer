@@ -1,8 +1,6 @@
 import cv2
 import urllib.request
 import numpy as np
-import imutils
-import time
 
 
 def url_to_image(url):

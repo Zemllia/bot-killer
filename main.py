@@ -1,6 +1,5 @@
 import time
 import traceback
-
 import vk_api
 import random
 import config
@@ -10,7 +9,9 @@ import face_detect
 
 from vk_api.longpoll import VkLongPoll, VkEventType
 
+
 def connect_to_vk():
+    print("Connecting to VK")
     global vk_session
     global longpoll
     global vk
@@ -21,13 +22,15 @@ def connect_to_vk():
 
     vk = vk_session.get_api()
 
+    print("Successfully connected to VK")
+
 
 connect_to_vk()
 
 conn = sqlite3.connect(config.sqlite_path)
 c = conn.cursor()
-
-
+print("Successfully connected to DB")
+print("Server successfully started")
 def generate_user_password():
     password = ""
     for number in range(8):
@@ -154,7 +157,8 @@ def send_messages_to_all_users(message):
                 message=message,
                 random_id=random.randint(-1000000000, 1000000000)
             )
-        except:
+        except Exception as e:
+            print('Ошибка:\n', traceback.format_exc())
             print("User is banned")
 
 
@@ -164,7 +168,7 @@ def send_messages_about_victim_to_all_users():
     result = c.fetchall()
     for item in result:
         image, group = generate_message_about_victim(item[1])
-        message = "Ваша цель:\nСсылка на страничку: https://vk.com/id" + str(item[0]) + " \nГруппа:" + group + "\n Фотография: "
+        message = "Ваша цель:\nСсылка на страничку: https://vk.com/id" + str(item[1]) + " \nГруппа:" + group + "\n Фотография: "
         try:
             vk.messages.send(
                 user_id=item[0],
@@ -172,7 +176,8 @@ def send_messages_about_victim_to_all_users():
                 attachment=image,
                 random_id=random.randint(-1000000000, 1000000000)
             )
-        except:
+        except Exception as e:
+            print('Ошибка:\n', traceback.format_exc())
             print("User is banned")
 
 
@@ -225,6 +230,13 @@ def change_victim(user_id):
     cmd = "UPDATE user_info SET is_dead=1 WHERE user_id = %d" % victim_id
     c.execute(cmd)
     conn.commit()
+
+    vk.messages.send(
+        user_id=victim_id,
+        message="Вы были убиты! Не расстраивайтесь, в следующий раз повезет",
+        keyboard=open("stage_2.json", "r", encoding="UTF-8").read(),
+        random_id=random.randint(-1000000000, 1000000000)
+    )
 
     return new_target_id
 
@@ -292,8 +304,7 @@ def check_message_on_stage_zero(cur_event):
         else:
             vk.messages.send(
                 user_id=user_id,
-                message="Ты уже участвешь, жди начала..."
-                        "\n(https://vk.com/id_000010010010000000000001)",
+                message="Ты уже участвешь, жди начала...",
                 keyboard=open("stage_1.json", "r", encoding="UTF-8").read(),
                 random_id=random.randint(-1000000000, 1000000000)
             )
