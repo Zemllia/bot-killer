@@ -1,5 +1,5 @@
 # Токен сообщества вк
-token = "1c5b8dc15da393fb051d0b85679373b62ed9cf7ec5df7d2557022cdfcb970f8c1fc40a116c1efdfc9e8bf"
+token = ""
 
 # Файл бд sqlite
 sqlite_path = "db.db"
